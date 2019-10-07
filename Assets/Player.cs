@@ -6,12 +6,13 @@ static class PlayerPhysics
   public const float jumpForce = 30.0f;
   public const float jumpForceDecayRate = 3.0f;
   public const float jumpSpeed = 6.0f;
-  public const int jumpCount = 2; // >1 = allow double-jumping
+  public const int jumpCount = 1; // >1 = allow double-jumping
 
   public const float moveForce = 40.0f;
   public const float maxSpeed = 6.0f;
 
-  public const int dashCount = 1; // >1 = allow double-dashing
+  public const int dashCount = 2; // >1 = allow double-dashing
+  public const float dashCooldown = 1;
   public const float dashSpeed = 10.0f;
 }
 
@@ -28,6 +29,7 @@ public class Player : MonoBehaviour
 
   private int dashCount = 0;
   private bool dashLastFrame = false;
+  private float dashTime = -PlayerPhysics.dashCooldown;
 
   void Start()
   {
@@ -68,7 +70,6 @@ public class Player : MonoBehaviour
     if (this.jumpLastFrame && jumpCount < PlayerPhysics.jumpCount)
     {
       jumpCount++;
-      this.jumpLastFrame = false;
       this.isJumping = true;
       this.jumpTime = Time.time;
 
@@ -86,17 +87,23 @@ public class Player : MonoBehaviour
     {
       this.isJumping = false;
     }
+
+    this.jumpLastFrame = false;
   }
 
   void HandleDash()
   {
-    if (this.dashLastFrame && dashCount < PlayerPhysics.dashCount)
+    float dt = Time.time - this.dashTime;
+
+    if (this.dashLastFrame && dashCount < PlayerPhysics.dashCount && dt > PlayerPhysics.dashCooldown)
     {
       dashCount++;
-      this.dashLastFrame = false;
+      this.dashTime = Time.time;
 
       this.body.velocity = this.GetXYInput() * PlayerPhysics.dashSpeed;
     }
+
+    this.dashLastFrame = false;
   }
 
   void HandlePlayerPhysics()
@@ -110,7 +117,6 @@ public class Player : MonoBehaviour
   void FixedUpdate()
   {
     this.HandlePlayerPhysics();
-
   }
 
   void Update()
@@ -120,13 +126,24 @@ public class Player : MonoBehaviour
     this.dashLastFrame = this.dashLastFrame || gamepad.buttonWest.wasPressedThisFrame;
   }
 
+  void OnCollisionStay2D(Collision2D collision)
+  {
+    // player is on the ground
+    if (collision.gameObject.tag == "Floor")
+    {
+      this.dashCount = 0;
+    }
+  }
+
   void OnCollisionEnter2D(Collision2D collision)
   {
-    // player landed on the ground
+    // player touched the ground
     if (collision.gameObject.tag == "Floor")
     {
       this.jumpCount = 0;
-      this.dashCount = 0;
+
+      // always allow another dash immediately after landing
+      this.dashTime = -PlayerPhysics.dashCooldown;
     }
   }
 }
